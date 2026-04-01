@@ -1,21 +1,12 @@
 version: "3.9"
-services:
-  backend:
-    build: ./backend
-    container_name: superwincasino-backend
-    ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: production
-      CONVEX_URL: ${CONVEX_URL}
-      BACK4APP_APP_ID: ${BACK4APP_APP_ID}
-      BACK4APP_JS_KEY: ${BACK4APP_JS_KEY}
 
+services:
   frontend:
-    build: ./frontend
+    build: .
     container_name: superwincasino-frontend
     ports:
       - "80:80"
     environment:
-      CONVEX_URL: ${CONVEX_URL}
-      FILE_STORAGE_URL: ${FILE_STORAGE_URL}
+      VITE_CONVEX_URL: ${CONVEX_URL}
+      VITE_FILE_STORAGE_URL: ${FILE_STORAGE_URL}
+    restart: always
