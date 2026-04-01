@@ -1,35 +1,4 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
-name: Node.js CI
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
-name: Frontend CI/CD - SuperWin Casino
+name: Node.js CI/CD - SuperWin Casino Backend
 
 on:
   push:
@@ -45,7 +14,7 @@ jobs:
         node-version: [18.x, 20.x]
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout the repo
       - uses: actions/checkout@v4
 
       # 2️⃣ Setup Node.js
@@ -59,18 +28,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Build frontend
-      - name: Build Frontend
-        run: npm run build
+      # 4️⃣ Build backend (Webpack/Nitro/TS)
+      - name: Build Project
+        run: npx webpack --mode production
 
-      # 5️⃣ Run tests (optional)
+      # 5️⃣ Run tests
       - name: Run Tests
-        run: npm test || echo "No tests configured"
+        run: npm test
 
       # 6️⃣ Build Docker image
       - name: Build Docker Image
-        run: |
-          docker build -t superwincasino-frontend:latest .
+        run: docker build -t superwincasino-backend:latest .
 
       # 7️⃣ Docker login
       - name: Docker Login
@@ -82,8 +50,8 @@ jobs:
       # 8️⃣ Push Docker image
       - name: Push Docker Image
         run: |
-          docker tag superwincasino-frontend:latest ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
+          docker tag superwincasino-backend:latest ${{ secrets.DOCKER_USERNAME }}/superwincasino-backend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/superwincasino-backend:latest
 
       # 9️⃣ Deploy to VPS via SSH
       - name: Deploy to VPS
@@ -93,12 +61,14 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
-            docker stop superwincasino-frontend || true
-            docker rm superwincasino-frontend || true
+            docker pull ${{ secrets.DOCKER_USERNAME }}/superwincasino-backend:latest
+            docker stop superwincasino-backend || true
+            docker rm superwincasino-backend || true
             docker run -d \
-              --name superwincasino-frontend \
-              -p 80:80 \
+              --name superwincasino-backend \
+              -p 3000:3000 \
+              -e NODE_ENV=production \
+              -e BACK4APP_APP_ID=${{ secrets.BACK4APP_APP_ID }} \
+              -e BACK4APP_JS_KEY=${{ secrets.BACK4APP_JS_KEY }} \
               -e CONVEX_URL=${{ secrets.CONVEX_URL }} \
-              -e FILE_STORAGE_URL=${{ secrets.FILE_STORAGE_URL }} \
-              ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
+              ${{ secrets.DOCKER_USERNAME }}/superwincasino-backend:latest
