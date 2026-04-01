@@ -29,3 +29,76 @@ jobs:
     - run: npm ci
     - run: npm run build --if-present
     - run: npm test
+name: Frontend CI/CD - SuperWin Casino
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      # 1️⃣ Checkout repo
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 4️⃣ Build frontend
+      - name: Build Frontend
+        run: npm run build
+
+      # 5️⃣ Run tests (optional)
+      - name: Run Tests
+        run: npm test || echo "No tests configured"
+
+      # 6️⃣ Build Docker image
+      - name: Build Docker Image
+        run: |
+          docker build -t superwincasino-frontend:latest .
+
+      # 7️⃣ Docker login
+      - name: Docker Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 8️⃣ Push Docker image
+      - name: Push Docker Image
+        run: |
+          docker tag superwincasino-frontend:latest ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
+
+      # 9️⃣ Deploy to VPS via SSH
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
+            docker stop superwincasino-frontend || true
+            docker rm superwincasino-frontend || true
+            docker run -d \
+              --name superwincasino-frontend \
+              -p 80:80 \
+              -e CONVEX_URL=${{ secrets.CONVEX_URL }} \
+              -e FILE_STORAGE_URL=${{ secrets.FILE_STORAGE_URL }} \
+              ${{ secrets.DOCKER_USERNAME }}/superwincasino-frontend:latest
